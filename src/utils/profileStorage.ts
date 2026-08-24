@@ -5,7 +5,9 @@
  */
 import { UserProfile } from '../types';
 
-const PROFILE_KEY = 'smarty.profile';
+// Legacy key from early builds; kept only for one-time migration.
+const LEGACY_PROFILE_KEY = 'smarty.profile';
+const PROFILE_KEY = 'smart-speaking.profile';
 
 export function defaultProfile(): UserProfile {
   return {
@@ -19,10 +21,16 @@ export function defaultProfile(): UserProfile {
 
 export function loadProfile(): UserProfile {
   try {
-    const raw = localStorage.getItem(PROFILE_KEY);
+    const raw = localStorage.getItem(PROFILE_KEY) ?? localStorage.getItem(LEGACY_PROFILE_KEY);
     if (!raw) return defaultProfile();
     const parsed = JSON.parse(raw) as Partial<UserProfile>;
-    return { ...defaultProfile(), ...parsed };
+    const profile = { ...defaultProfile(), ...parsed };
+    // Migrate off the legacy key.
+    if (localStorage.getItem(LEGACY_PROFILE_KEY)) {
+      saveProfile(profile);
+      localStorage.removeItem(LEGACY_PROFILE_KEY);
+    }
+    return profile;
   } catch {
     return defaultProfile();
   }

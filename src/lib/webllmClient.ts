@@ -38,11 +38,13 @@ export const MODEL_OPTIONS: ModelOption[] = [
 export const DEFAULT_MODEL_ID = MODEL_OPTIONS[0].id;
 
 
-const STORAGE_KEY_MODEL = 'smarty.modelId';
+const STORAGE_KEY_MODEL = 'smart-speaking.modelId';
 
 export function getSelectedModelId(): string {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY_MODEL);
+    const saved =
+      localStorage.getItem(STORAGE_KEY_MODEL) ??
+      localStorage.getItem('smarty.modelId'); // legacy key
     if (saved && MODEL_OPTIONS.some((m) => m.id === saved)) return saved;
   } catch {
     /* localStorage unavailable */

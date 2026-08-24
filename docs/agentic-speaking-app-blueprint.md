@@ -1,4 +1,4 @@
-# SmartyMe-Style Agentic Speaking Practice App Blueprint
+# Agentic Speaking Practice App — Design Blueprint
 
 This document contains the complete architectural plan, system prompts, schemas, workflow, and code implementations for building a zero-backend, client-side speaking practice web application designed for GitHub Pages hosting, local training progress persistence via IndexedDB, and structured Markdown exports for LLM/Agentic workflows.
 

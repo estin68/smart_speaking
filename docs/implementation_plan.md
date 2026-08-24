@@ -2,7 +2,7 @@
 
 ## [Overview]
 
-Build **SmartyMe-style Agentic Speaking Practice App**: a zero-backend React SPA hosted on GitHub Pages where users practice real-world conversations against an LLM roleplay counterpart, receive structured communication coaching, track progress locally in IndexedDB, and export session logs as Markdown for external LLM workflows.
+Build **Smart Speaking** — an agentic practice app: a zero-backend React SPA hosted on GitHub Pages where users practice real-world conversations against an LLM roleplay counterpart, receive structured communication coaching, track progress locally in IndexedDB, and export session logs as Markdown for external LLM workflows.
 
 **Key architectural decisions (confirmed with user):**
 1. **Fully offline LLM intelligence** — Simulator and Evaluator agents run a small local model in-browser via **WebLLM (`@mlc-ai/web-llm`)** on WebGPU; weights cache after first download.
@@ -60,7 +60,7 @@ XpEventSchema   // { amount:number, reason:'session_complete'|'high_score'|'new_
 MissionSchema   // { id:string, title:string, description:string,
                 //    type:'count'|'streak'|'score'|'variety', target:number,
                 //    progress:number, completed:boolean, rewardXp:number }
-UserProfile     // localStorage 'smarty.profile': { displayName:string, totalXp:number,
+UserProfile     // localStorage 'smart-speaking.profile': { displayName:string, totalXp:number,
                 //    level:number, streakDays:number, lastSessionDate:string|null }
 ```
 Level curve: `level = floor(sqrt(totalXp / 50)) + 1` (simple, tunable).

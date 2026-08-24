@@ -10,11 +10,13 @@ export interface SpeechSettings {
   pitch: number;
 }
 
-const SETTINGS_KEY = 'smarty.speechSettings';
+const SETTINGS_KEY = 'smart-speaking.speechSettings';
 
 function loadSettings(): SpeechSettings {
   try {
-    const raw = localStorage.getItem(SETTINGS_KEY);
+    const raw =
+      localStorage.getItem(SETTINGS_KEY) ??
+      localStorage.getItem('smarty.speechSettings'); // legacy key
     if (raw) return { voiceURI: null, rate: 1, pitch: 1, ...JSON.parse(raw) };
   } catch {
     /* ignore */
