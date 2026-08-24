@@ -19,13 +19,8 @@ export interface ModelOption {
 /** Small, fast models that work well for short roleplay turns. */
 export const MODEL_OPTIONS: ModelOption[] = [
   {
-    id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC',
-    label: 'Llama 3.2 3B (best quality)',
-    sizeHint: '~2.2 GB download',
-  },
-  {
     id: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
-    label: 'Llama 3.2 1B (balanced)',
+    label: 'Llama 3.2 1B (recommended)',
     sizeHint: '~0.9 GB download',
   },
   {
@@ -33,9 +28,15 @@ export const MODEL_OPTIONS: ModelOption[] = [
     label: 'Qwen 2.5 0.5B (lightest)',
     sizeHint: '~0.5 GB download',
   },
+  {
+    id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC',
+    label: 'Llama 3.2 3B (best quality, needs strong GPU)',
+    sizeHint: '~2.2 GB download',
+  },
 ];
 
 export const DEFAULT_MODEL_ID = MODEL_OPTIONS[0].id;
+
 
 const STORAGE_KEY_MODEL = 'smarty.modelId';
 
@@ -99,50 +100,94 @@ export function isEngineReady(): boolean {
   return enginePromise !== null;
 }
 
+/**
+ * Drops a cached engine (e.g. after WebGPU device-loss) so the next
+ * `ensureEngine()` call re-initialises from scratch.
+ */
+export function resetEngine(): void {
+  enginePromise = null;
+  cachedModelId = null;
+}
+
+
 // ---------- Structured JSON generation ----------
 
 function extractJson(raw: string): unknown {
   const trimmed = raw.trim();
   // Strip markdown code fences if the model adds them despite constraints.
   const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
-  const candidate = fenced ? fenced[1] : trimmed;
+  let candidate = fenced ? fenced[1] : trimmed;
+  // Lenient: grab the outermost JSON object even with surrounding chatter.
+  const start = candidate.indexOf('{');
+  const end = candidate.lastIndexOf('}');
+  if (start >= 0 && end > start) {
+    candidate = candidate.slice(start, end + 1);
+  }
   return JSON.parse(candidate);
+}
+
+/** Detects unrecoverable WebGPU failures (e.g. "SeraphicTermination"). */
+function isDeviceLostError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /device.*(lost|terminated)|seraphic|webgpu.*invalid|out of memory/i.test(
+    msg
+  );
+}
+
+function deviceLostError(): Error {
+  return new Error(
+    'The GPU context was terminated — usually memory pressure from a larger ' +
+      'model or too many open tabs. Pick the lightest model in Settings, close ' +
+      'other tabs/apps, then reload the page and try again.'
+  );
 }
 
 /**
  * Runs a chat completion constrained to the given Zod schema and returns
- * validated, typed output. Retries once with a corrective nudge if the model
- * emits invalid JSON or fails validation.
+ * validated, typed output.
+ *
+ * Strategy per call (each attempt appends a corrective nudge to the chat):
+ *   1–2. WebLLM structured generation — `response_format` type "json_object"
+ *        WITH the schema (this is how WebLLM ≥0.2.x expresses schema-constrained
+ *        decoding; OpenAI's "json_schema" type is NOT supported).
+ *      3. Unconstrained fallback — prompt-only JSON instructions + lenient
+ *         extraction, for engines/models where constrained decoding fails.
  */
 export async function chatJSON<T>(
   messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
   schema: z.ZodType<T>,
   options: { temperature?: number; maxTokens?: number } = {}
 ): Promise<T> {
-  const engine = await ensureEngine();
+  let engine: Awaited<ReturnType<typeof ensureEngine>>;
+  try {
+    engine = await ensureEngine();
+  } catch (err) {
+    throw isDeviceLostError(err) ? deviceLostError() : err;
+  }
+
   const schemaJson = zodToJsonSchema(schema, { target: 'openApi3' }) as Record<
     string,
     unknown
   >;
 
   const requestMessages = [...messages];
-  let attempt = 0;
+  const maxAttempts = 3;
   let lastError: unknown = null;
 
-  while (attempt < 2) {
-    attempt += 1;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
-      // WebLLM supports OpenAI-style `response_format` with a JSON schema
-      // (typed loosely here: the bundled types lag behind the runtime, and
-      // create() also returns a streaming union type we never request).
+      // WebLLM's response format types are "text" | "json_object" | "grammar"
+      // | "structural_tag" — the schema rides along on "json_object".
+      // Typed loosely: bundled types lag behind the runtime, and create()
+      // also returns a streaming union type we never request.
+      const useSchema = attempt < maxAttempts;
       const request = {
         messages: requestMessages,
         temperature: options.temperature ?? 0.7,
         max_tokens: options.maxTokens ?? 700,
-        response_format: {
-          type: 'json_schema',
-          schema: schemaJson,
-        },
+        ...(useSchema
+          ? { response_format: { type: 'json_object', schema: schemaJson } }
+          : {}),
       };
       const completion = (await engine.chat.completions.create(
         request as unknown as Parameters<
@@ -150,24 +195,32 @@ export async function chatJSON<T>(
         >[0]
       )) as { choices: Array<{ message?: { content?: string } }> };
       const raw = completion.choices[0]?.message?.content ?? '';
+      if (!raw.trim()) throw new Error('Model returned an empty response');
       return schema.parse(extractJson(raw));
     } catch (err) {
       lastError = err;
-      requestMessages.push({
-        role: 'assistant',
-        content:
-          (err instanceof Error ? err.message : String(err)).slice(0, 200) ||
-          'Invalid output',
-      });
-      requestMessages.push({
-        role: 'user',
-        content:
-          'Your previous response was not valid JSON matching the required schema. Respond again with ONLY the correct JSON object.',
-      });
+      if (isDeviceLostError(err)) {
+        // The engine is dead — drop it so the next call re-initialises.
+        resetEngine();
+        throw deviceLostError();
+      }
+      if (attempt < maxAttempts) {
+        requestMessages.push({
+          role: 'assistant',
+          content:
+            (err instanceof Error ? err.message : String(err)).slice(0, 200) ||
+            'Invalid output',
+        });
+        requestMessages.push({
+          role: 'user',
+          content:
+            'Your previous response was not valid JSON matching the required schema. Respond again with ONLY the correct JSON object.',
+        });
+      }
     }
   }
   throw new Error(
-    `LLM failed to produce valid structured output after ${attempt} attempts: ${
+    `LLM failed to produce valid structured output after ${maxAttempts} attempts: ${
       lastError instanceof Error ? lastError.message : String(lastError)
     }`
   );

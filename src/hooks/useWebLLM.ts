@@ -40,8 +40,13 @@ export function useWebLLM() {
       setStatus('ready');
       setError(null);
     } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
       setStatus('error');
-      setError(err instanceof Error ? err.message : String(err));
+      setError(
+        /device.*(lost|terminated)|seraphic|out of memory/i.test(msg)
+          ? 'The GPU ran out of memory while loading this model. Try the lightest model in Settings, close other tabs, and reload the page.'
+          : msg
+      );
     }
   }, []);
 
