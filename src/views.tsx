@@ -118,7 +118,18 @@ export function SessionView(props: {
   onAbort: () => void;
 }) {
   const { scenario, state } = props;
-  const recognition = useSpeechRecognition({ lang: 'en-GB' });
+  const [sttBlocked, setSttBlocked] = useState(false);
+  const recognition = useSpeechRecognition({
+    lang: 'en-GB',
+    onError: (err) => {
+      // Chrome's SpeechRecognition streams audio to Google servers —
+      // "network"/"service-not-allowed" mean the service is unreachable
+      // (common outside supported regions). Fall back to typing.
+      if (err === 'network' || err === 'service-not-allowed') {
+        setSttBlocked(true);
+      }
+    },
+  });
   const [textFallback, setTextFallback] = useState('');
   const startedAtRef = useRef<number | undefined>(undefined);
 
@@ -131,6 +142,8 @@ export function SessionView(props: {
     }
     startedAtRef.current = undefined;
   };
+
+  const useMic = recognition.isSupported && !sttBlocked;
 
   const busy =
     state.phase === 'agent-thinking' ||
@@ -185,7 +198,15 @@ export function SessionView(props: {
 
       {state.phase === 'listening' && (
         <footer className="session-controls">
-          {recognition.isSupported ? (
+          {sttBlocked && (
+            <div className="banner banner-info" style={{ width: '100%', marginBottom: 0 }}>
+              🎙️ Speech recognition isn't reachable from your network (Chrome sends mic audio to
+              Google's servers). <strong>Type your replies below</strong> for now — or try the
+              Microsoft Edge browser, whose speech service works in more regions. Speaking practice
+              still counts: read your reply aloud before sending!
+            </div>
+          )}
+          {useMic ? (
             <>
               <button
                 className={`mic-btn ${recognition.isListening ? 'recording' : ''}`}
@@ -206,7 +227,7 @@ export function SessionView(props: {
                   ? 'Listening… click again when you finish your turn.'
                   : 'Click the mic, make your point, then click again to send.'}
               </small>
-              {recognition.error && (
+              {recognition.error && recognition.error !== 'network' && (
                 <small className="error-text">Mic error: {recognition.error}</small>
               )}
             </>
@@ -224,7 +245,11 @@ export function SessionView(props: {
               <input
                 value={textFallback}
                 onChange={(e) => setTextFallback(e.target.value)}
-                placeholder="Speech recognition unavailable — type your reply…"
+                placeholder={
+                  sttBlocked || !recognition.isSupported
+                    ? 'Type what you would say aloud…'
+                    : 'Speech recognition unavailable — type your reply…'
+                }
               />
               <button className="btn btn-primary" type="submit">Send</button>
             </form>
