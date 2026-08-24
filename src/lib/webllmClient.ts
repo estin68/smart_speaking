@@ -16,26 +16,40 @@ export interface ModelOption {
   sizeHint: string;
 }
 
-/** Small, fast models that work well for short roleplay turns. */
+/** Small models that work well for short roleplay turns.
+ * `q4f32_1` variants use fp32 shader math — the most compatible choice
+ * (fp16 device-lost crashes are common on macOS/ANGLE and older GPUs).
+ */
 export const MODEL_OPTIONS: ModelOption[] = [
   {
+    id: 'Llama-3.2-1B-Instruct-q4f32_1-MLC',
+    label: 'Llama 3.2 1B (recommended · Mac-friendly)',
+    sizeHint: '~1 GB download',
+  },
+  {
+    id: 'Qwen2.5-0.5B-Instruct-q4f32_1-MLC',
+    label: 'Qwen 2.5 0.5B (lightest · most compatible)',
+    sizeHint: '~0.6 GB download',
+  },
+  {
     id: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
-    label: 'Llama 3.2 1B (recommended)',
+    label: 'Llama 3.2 1B fp16 (smaller download)',
     sizeHint: '~0.9 GB download',
   },
   {
     id: 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC',
-    label: 'Qwen 2.5 0.5B (lightest)',
+    label: 'Qwen 2.5 0.5B fp16 (smallest download)',
     sizeHint: '~0.5 GB download',
   },
   {
-    id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC',
-    label: 'Llama 3.2 3B (best quality, needs strong GPU)',
-    sizeHint: '~2.2 GB download',
+    id: 'Llama-3.2-3B-Instruct-q4f32_1-MLC',
+    label: 'Llama 3.2 3B (best quality · needs 16 GB+ RAM)',
+    sizeHint: '~3 GB download',
   },
 ];
 
 export const DEFAULT_MODEL_ID = MODEL_OPTIONS[0].id;
+
 
 
 const STORAGE_KEY_MODEL = 'smart-speaking.modelId';

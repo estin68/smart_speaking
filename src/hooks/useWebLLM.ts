@@ -44,7 +44,7 @@ export function useWebLLM() {
       setStatus('error');
       setError(
         /device.*(lost|terminated)|seraphic|out of memory/i.test(msg)
-          ? 'The GPU ran out of memory while loading this model. Try the lightest model in Settings, close other tabs, and reload the page.'
+          ? 'The GPU ran out of memory or dropped its context while loading this model. On a Mac, switch to one of the "(Mac-friendly)" models in Settings (fp32), close other tabs/apps, then reload the page.'
           : msg
       );
     }

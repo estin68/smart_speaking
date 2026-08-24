@@ -19,10 +19,18 @@ export function ModelStatusBanner({ status, progressPct, progressText, error, on
     return (
       <div className="banner banner-error">
         ⚠️ {error ?? 'The local AI model could not be loaded.'}
-        {!progressText && <button className="btn" onClick={onInit}>Retry</button>}
+        <div className="btn-row">
+          <button className="btn" onClick={() => window.location.reload()}>
+            Reload page
+          </button>
+          <button className="btn" onClick={onInit}>
+            Retry
+          </button>
+        </div>
       </div>
     );
   }
+
 
   if (status === 'loading' || status === 'uninitialized') {
     const firstRun = progressPct === 0;

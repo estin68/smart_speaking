@@ -26,9 +26,18 @@ npm run dev        # http://localhost:5173
 Requirements for full voice practice:
 - **Chrome or Edge 113+** on desktop (WebGPU + Web Speech API)
 - Hardware acceleration enabled
-- First session triggers a one-time model download (~2 GB for the default Llama 3.2 3B; smaller models selectable in Settings)
+- First session triggers a one-time model download (~1 GB for the default Llama 3.2 1B; smaller/larger models selectable in Settings)
 
 Firefox/Safari users can still practise via the text-input fallback.
+
+### If the model fails to load on a Mac ("SeraphicTermination" / GPU out of memory)
+
+1. **Use an fp32 model** — in Settings pick a "(Mac-friendly)" option (`q4f32_1` weights). fp16 models crash the GPU context on many Macs.
+2. **Check hardware acceleration**: Chrome → Settings → System → "Use graphics acceleration when available" → relaunch.
+3. Free up memory: close other tabs and heavy apps (the whole model must fit in GPU-accessible memory alongside your browser).
+4. Reload the page after switching models — a terminated WebGPU context can only be recovered with a fresh page load.
+5. Still failing? Try the Qwen 0.5B "most compatible" model.
+
 
 ## The daily loop
 
