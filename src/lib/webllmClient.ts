@@ -202,7 +202,15 @@ export async function chatJSON<T>(
         temperature: options.temperature ?? 0.7,
         max_tokens: options.maxTokens ?? 700,
         ...(useSchema
-          ? { response_format: { type: 'json_object', schema: schemaJson } }
+          ? {
+              response_format: {
+                type: 'json_object',
+                // WebLLM's ResponseFormat.schema is a STRING of JSON
+                // (passing an object throws "Cannot pass non-string to
+                // std::string" inside the WASM binding).
+                schema: JSON.stringify(schemaJson),
+              },
+            }
           : {}),
       };
       const completion = (await engine.chat.completions.create(
