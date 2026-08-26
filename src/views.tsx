@@ -196,6 +196,20 @@ export function SessionView(props: {
 
       <TranscriptView turns={state.turns} />
 
+      {state.phase === 'listening' && recognition.isListening && (
+        <div className="live-transcript" aria-live="polite">
+          <span className="live-label">🔴 Listening</span>
+          {recognition.transcript ? (
+            <>
+              <span className="live-final">{recognition.finalTranscript}</span>
+              <span className="live-interim">{recognition.interimTranscript}</span>
+            </>
+          ) : (
+            <span className="muted">Start talking — your words appear here…</span>
+          )}
+        </div>
+      )}
+
       {state.phase === 'listening' && (
         <footer className="session-controls">
           {sttBlocked && (

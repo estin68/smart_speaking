@@ -119,19 +119,37 @@ export function useSpeechRecognition(
     recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
       // 'no-speech' is normal during silence — don't surface as an error state.
       if (event.error !== 'no-speech') setError(event.error);
+      // Fatal errors: stop the restart loop, otherwise we'd hammer the
+      // service endlessly and keep flashing the OS mic indicator.
+      if (
+        event.error === 'network' ||
+        event.error === 'service-not-allowed' ||
+        event.error === 'not-allowed' ||
+        event.error === 'audio-capture'
+      ) {
+        manuallyStoppedRef.current = true;
+      }
       optionsRef.current.onError?.(event.error);
     };
 
+    // Debounced auto-restart: Chrome ends recognition sessions frequently
+    // (silence timeouts / server hiccups); restart after a short pause to
+    // stay continuous without hammering the service.
+    let restartTimer: number | undefined;
+
     recognition.onend = () => {
+      if (restartTimer !== undefined) window.clearTimeout(restartTimer);
       if (recognition.continuous && !manuallyStoppedRef.current) {
-        // Chrome ends the session periodically; restart to stay continuous.
-        // (Explicit stopListening() sets the ref first, so a user-initiated
-        // stop never triggers this auto-restart.)
-        try {
-          recognition.start();
-        } catch {
-          setIsListening(false);
-        }
+        restartTimer = window.setTimeout(() => {
+          restartTimer = undefined;
+          if (!manuallyStoppedRef.current) {
+            try {
+              recognition.start();
+            } catch {
+              setIsListening(false);
+            }
+          }
+        }, 250);
       } else {
         setIsListening(false);
       }
@@ -141,6 +159,7 @@ export function useSpeechRecognition(
 
     return () => {
       manuallyStoppedRef.current = true;
+      if (restartTimer !== undefined) window.clearTimeout(restartTimer);
       try {
         recognition.abort();
       } catch {

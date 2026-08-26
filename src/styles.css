@@ -647,6 +647,37 @@ nav {
   padding: 40px 0;
 }
 
+/* ---------- Live transcript (while listening) ---------- */
+
+.live-transcript {
+  background: var(--surface);
+  border: 1px solid var(--primary);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  margin-bottom: 12px;
+  min-height: 3em;
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.live-label {
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  color: #f87171;
+  font-weight: 700;
+}
+
+.live-final {
+  color: var(--text);
+}
+
+.live-interim {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
 
 
 
